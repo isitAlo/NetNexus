@@ -1,11 +1,7 @@
-# Remove the license file if it exists locally
 rm LICENSE 2>/dev/null
 
-# Stage the changes
 git add .
 
-# Commit the 'Clean' state
 git commit -m "Remove license and finalize core logic"
 
-# Push to GitHub
 git push origin main
