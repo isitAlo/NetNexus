@@ -1,19 +1,31 @@
 import scapy.all as scapy
+import socket
 
-def get_gateway_ip():
-    """Automatically detects the router IP."""
-    return scapy.conf.route.route("0.0.0.0")[2]
+def get_hostname(ip):
+    """Attempts to resolve an IP address to a hostname."""
+    try:
+        # Standard DNS/Reverse DNS lookup
+        return socket.gethostbyaddr(ip)[0]
+    except (socket.herror, socket.timeout):
+        return "Unknown Device"
 
-def scan_network():
-    """Scans the local network for active devices."""
-    gateway_ip = get_gateway_ip()
-    network_prefix = ".".join(gateway_ip.split(".")[:-1]) + ".0/24"
-    
-    arp_request = scapy.ARP(pdst=network_prefix)
+def scan(ip_range):
+    """Scans the network for active devices and retrieves their names."""
+    # Create ARP request for the specified range
+    arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-    answered_list = scapy.srp(broadcast/arp_request, timeout=2, verbose=False)[0]
+    arp_request_broadcast = broadcast/arp_request
     
-    devices = []
+    # Send and receive packets
+    answered_list = scapy.srp(arp_request_broadcast, timeout=1, verbose=False)[0]
+
+    devices_list = []
     for element in answered_list:
-        devices.append({"ip": element[1].psrc, "mac": element[1].hwsrc})
-    return devices
+        ip = element[1].psrc
+        mac = element[1].hwsrc
+        name = get_hostname(ip)
+        
+        device_details = {"ip": ip, "mac": mac, "name": name}
+        devices_list.append(device_details)
+        
+    return devices_list
