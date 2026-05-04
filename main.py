@@ -1,43 +1,23 @@
 from core import scanner, spoof, shaper
-import time
-import sys
+import os
+
+def display_devices(devices):
+    print("\nID\tIP Address\t\tMAC Address\t\tDevice Name")
+    print("-" * 75)
+    for index, device in enumerate(devices):
+        print(f"{index}\t{device['ip']}\t\t{device['mac']}\t{device['name']}")
 
 def main():
-    print("=== NetNexus: Open Source Home Network Manager ===")
+    # Ensure tool is run with root on Arch Linux[cite: 2]
+    if os.geteuid() != 0:
+        print("[-] This tool must be run with sudo.")
+        return
+
+    print("--- NetNexus Network Manager ---")
+    target_range = input("Enter network range (e.g., 192.168.1.1/24): ")
     
-    # 1. Automatic Scanning
-    devices = scanner.scan_network()
-    print(f"\n[+] Found {len(devices)} devices:")
-    for i, dev in enumerate(devices):
-        print(f"[{i}] IP: {dev['ip']} | MAC: {dev['mac']}")
+    print("[*] Scanning network...")
+    devices = scanner.scan(target_range)
+    display_devices(devices)
 
-    # 2. User Input
-    target_id = int(input("\n[?] Select Device ID: "))
-    target = devices[target_id]
-    gateway = scanner.get_gateway_ip()
-    
-    mode = input("[?] Choose mode (kill / limit): ").lower()
-
-    try:
-        if mode == "kill":
-            shaper.set_ip_forwarding(False)
-            print(f"[*] Internet connection severed for {target['ip']}")
-        elif mode == "limit":
-            speed = input("[?] Enter limit (kbps): ")
-            shaper.set_ip_forwarding(True)
-            shaper.apply_limit(target['ip'], "wlan0", speed) # Change wlan0 if needed
-            print(f"[*] Speed limited to {speed}kbps for {target['ip']}")
-
-        # 3. Start ARP Spoofing Loop
-        print("[!] Running... Press CTRL+C to stop.")
-        while True:
-            spoof.send_spoof_packets(target['ip'], gateway)
-            time.sleep(2)
-
-    except KeyboardInterrupt:
-        print("\n[!] Shutting down. Cleaning up network rules...")
-        shaper.reset_network("wlan0")
-        sys.exit()
-
-if __name__ == "__main__":
-    main()
+    # ... Rest of your logic for spoofing and shaping[cite: 2]
