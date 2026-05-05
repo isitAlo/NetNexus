@@ -4,50 +4,39 @@ import time
 from core import scanner, spoof
 
 def main():
-    # --- CONFIGURATION ---
-    # !!! REPLACE 'wlan0' with your interface name from 'ip a' !!!
+    # CONFIGURATION
+    # Run 'ip a' and put your interface name here (e.g., wlan0)
     scapy.conf.iface = "wlan0" 
     
     if os.geteuid() != 0:
-        print("[-] NetNexus requires root privileges. Please run with: sudo python main.py")
+        print("[-] Please run with: sudo python main.py")
         return
 
-    print("=== NetNexus Network Manager ===")
-    target_range = "192.168.8.1/24"
-    
-    print(f"[*] Scanning {target_range}... This may take a moment.")
-    devices = scanner.scan(target_range)
-    
-    print("\nID\tIP Address\t\tMAC Address\t\tDevice Name")
-    print("-" * 85)
-    for index, device in enumerate(devices):
-        print(f"{index}\t{device['ip']}\t\t{device['mac']}\t{device['name']}")
+    gateway_ip = "192.168.8.1"
+    target_ip = "192.168.8.5" # Your PS5 IP
+
+    print(f"[*] Starting NetNexus on {scapy.conf.iface}")
+    print(f"[*] Target: {target_ip} | Gateway: {gateway_ip}")
+
+    # Get MAC addresses
+    target_mac, _ = spoof.get_device_info(target_ip)
+    gateway_mac, _ = spoof.get_device_info(gateway_ip)
+
+    if not target_mac or not gateway_mac:
+        print("[-] Failed to find MAC addresses. Is the PS5 on?")
+        return
 
     try:
-        choice = int(input("\nSelect Target ID: "))
-        gateway_ip = "192.168.8.1"
-        
-        target = devices[choice]
-        target_mac = target['mac']
-        gateway_mac, _ = spoof.get_device_info(gateway_ip)
-
-        if not gateway_mac:
-            print("[-] Could not find Gateway. Check your connection.")
-            return
-
-        print(f"[*] Intercepting {target['ip']} ({target['name']})...")
-        print("[*] Press Ctrl+C to stop.")
-        
+        print("[*] Spoofing started. Press Ctrl+C to stop.")
         while True:
-            # Aggressive 0.5s interval for PS5 stability
-            spoof.spoof(target['ip'], gateway_ip, target_mac, gateway_mac)
+            # Aggressive 0.5s timing for PS5 stability
+            spoof.spoof(target_ip, gateway_ip, target_mac, gateway_mac)
             time.sleep(0.5) 
-            
     except KeyboardInterrupt:
-        print("\n[*] Shutting down. Restoring ARP tables...")
-        spoof.restore(target['ip'], gateway_ip)
-        spoof.restore(gateway_ip, target['ip'])
-        print("[+] Success.")
+        print("\n[*] Restoring network...")
+        spoof.restore(target_ip, gateway_ip)
+        spoof.restore(gateway_ip, target_ip)
+        print("[+] Done.")
 
 if __name__ == "__main__":
     main()
