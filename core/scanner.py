@@ -12,8 +12,7 @@ def get_hostname(ip):
         pass
     return "Unknown Device"
 
-def scan(ip_range, existing_devices):
-    """Scans and merges new results with the existing device list."""
+def scan(ip_range, device_memory):
     arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
     ans = scapy.srp(broadcast/arp_request, timeout=2, verbose=False)[0]
@@ -21,11 +20,6 @@ def scan(ip_range, existing_devices):
     for element in ans:
         ip = element[1].psrc
         mac = element[1].hwsrc
-        # Only add if it's a new IP or the MAC changed
-        if ip not in existing_devices or existing_devices[ip]['mac'] != mac:
-            existing_devices[ip] = {
-                "ip": ip,
-                "mac": mac,
-                "name": get_hostname(ip)
-            }
-    return existing_devices
+        if ip not in device_memory or device_memory[ip]['mac'] != mac:
+            device_memory[ip] = {"ip": ip, "mac": mac, "name": get_hostname(ip)}
+    return device_memory
