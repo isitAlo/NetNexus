@@ -2,15 +2,14 @@ import scapy.all as scapy
 import socket
 
 def get_hostname(ip):
-    """Tries DNS and NetBIOS to find device names (like PS5)."""
-    # Try Standard DNS
+    """Attempts to resolve hostname via DNS and NetBIOS."""
     try:
         return socket.gethostbyaddr(ip)[0]
     except:
         pass
 
-    # Try NetBIOS (Best for Consoles/Windows)
     try:
+        # NetBIOS query specifically for consoles and Windows
         nbns_query = scapy.IP(dst=ip)/scapy.UDP(sport=137, dport=137)/scapy.NBNSQueryRequest(QUESTION_NAME="*")
         ans = scapy.sr1(nbns_query, timeout=0.5, verbose=False)
         if ans:
@@ -21,12 +20,11 @@ def get_hostname(ip):
     return "Unknown Device"
 
 def scan(ip_range):
-    """Deep scan using ARP and name resolution."""
+    """Performs ARP scan and resolves names."""
     arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
     packet = broadcast/arp_request
     
-    # 3 second timeout gives slow devices time to wake up
     answered_list = scapy.srp(packet, timeout=3, verbose=False)[0]
 
     devices_list = []
