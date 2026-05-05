@@ -1,37 +1,39 @@
 import scapy.all as scapy
 import socket
+import subprocess
 
 def get_hostname(ip):
-    """Attempts to resolve hostname via DNS and NetBIOS."""
+    """Deep scan for names using DNS, NetBIOS, and Nmap fallback."""
+    # Method 1: Standard DNS
     try:
         return socket.gethostbyaddr(ip)[0]
     except:
         pass
 
+    # Method 2: System Nmap (Best for Arch Linux to find PS5/Phones)
     try:
-        # NetBIOS query specifically for consoles and Windows
-        nbns_query = scapy.IP(dst=ip)/scapy.UDP(sport=137, dport=137)/scapy.NBNSQueryRequest(QUESTION_NAME="*")
-        ans = scapy.sr1(nbns_query, timeout=0.5, verbose=False)
-        if ans:
-            return ans.getlayer(scapy.NBNSQueryRequest).QUESTION_NAME.decode().strip()
+        output = subprocess.check_output(f"nmap -sL {ip}", shell=True).decode()
+        if "report for" in output:
+            name = output.split("report for")[1].split("(")[0].strip()
+            if not name.replace(".", "").isnumeric():
+                return name
     except:
         pass
 
     return "Unknown Device"
 
 def scan(ip_range):
-    """Performs ARP scan and resolves names."""
+    """ARP Scan with name resolution."""
     arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-    packet = broadcast/arp_request
-    
-    answered_list = scapy.srp(packet, timeout=3, verbose=False)[0]
+    ans = scapy.srp(broadcast/arp_request, timeout=3, verbose=False)[0]
 
     devices_list = []
-    for element in answered_list:
+    for element in ans:
         ip = element[1].psrc
-        mac = element[1].hwsrc
-        name = get_hostname(ip)
-        devices_list.append({"ip": ip, "mac": mac, "name": name})
-        
+        devices_list.append({
+            "ip": ip,
+            "mac": element[1].hwsrc,
+            "name": get_hostname(ip)
+        })
     return devices_list
