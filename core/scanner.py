@@ -8,18 +8,15 @@ def get_hostname(ip):
             name = output.split("report for")[1].split("(")[0].strip()
             if not name.replace(".", "").isnumeric():
                 return name
-    except:
-        pass
+    except: pass
     return "Unknown Device"
 
 def scan(ip_range, device_memory):
     arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
     ans = scapy.srp(broadcast/arp_request, timeout=2, verbose=False)[0]
-
     for element in ans:
-        ip = element[1].psrc
-        mac = element[1].hwsrc
+        ip, mac = element[1].psrc, element[1].hwsrc
         if ip not in device_memory or device_memory[ip]['mac'] != mac:
             device_memory[ip] = {"ip": ip, "mac": mac, "name": get_hostname(ip)}
     return device_memory
