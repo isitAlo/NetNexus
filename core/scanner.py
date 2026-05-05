@@ -2,6 +2,7 @@ import scapy.all as scapy
 import subprocess
 
 def get_hostname(ip):
+    """Uses Nmap list scanning to find device names on Arch Linux."""
     try:
         output = subprocess.check_output(f"nmap -sL {ip}", shell=True).decode()
         if "report for" in output:
@@ -13,7 +14,17 @@ def get_hostname(ip):
     return "Unknown Device"
 
 def scan(ip_range):
+    """ARP Scan with forced name resolution."""
     arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
     ans = scapy.srp(broadcast/arp_request, timeout=3, verbose=False)[0]
-    return [{"ip": e[1].psrc, "mac": e[1].hwsrc, "name": get_hostname(e[1].psrc)} for e in ans]
+
+    devices_list = []
+    for element in ans:
+        ip = element[1].psrc
+        devices_list.append({
+            "ip": ip,
+            "mac": element[1].hwsrc,
+            "name": get_hostname(ip)
+        })
+    return devices_list
