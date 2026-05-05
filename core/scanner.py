@@ -2,18 +2,15 @@ import scapy.all as scapy
 import socket
 
 def get_hostname(ip):
-    """
-    Tries multiple protocols to find the name.
-    """
-    # 1. Try Standard DNS
+    """Tries DNS and NetBIOS to find device names (like PS5)."""
+    # Try Standard DNS
     try:
         return socket.gethostbyaddr(ip)[0]
     except:
         pass
 
-    # 2. Try NetBIOS (The best way to find a PS5 or PC)
+    # Try NetBIOS (Best for Consoles/Windows)
     try:
-        # Sending a NetBIOS Name Service (NBNS) query
         nbns_query = scapy.IP(dst=ip)/scapy.UDP(sport=137, dport=137)/scapy.NBNSQueryRequest(QUESTION_NAME="*")
         ans = scapy.sr1(nbns_query, timeout=0.5, verbose=False)
         if ans:
@@ -24,25 +21,19 @@ def get_hostname(ip):
     return "Unknown Device"
 
 def scan(ip_range):
-    """
-    Active discovery using ARP, ICMP, and NetBIOS.
-    """
-    print(f"[*] Deep scanning {ip_range}...")
-    
-    # Send ARP broadcast
+    """Deep scan using ARP and name resolution."""
     arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-    combined_packet = broadcast/arp_request
+    packet = broadcast/arp_request
     
-    # We increase the timeout to 3 seconds for slower devices like the PS5
-    answered_list = scapy.srp(combined_packet, timeout=3, verbose=False)[0]
+    # 3 second timeout gives slow devices time to wake up
+    answered_list = scapy.srp(packet, timeout=3, verbose=False)[0]
 
     devices_list = []
     for element in answered_list:
         ip = element[1].psrc
         mac = element[1].hwsrc
         name = get_hostname(ip)
-        
         devices_list.append({"ip": ip, "mac": mac, "name": name})
-            
+        
     return devices_list
