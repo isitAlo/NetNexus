@@ -1,22 +1,21 @@
-# NetNexus 🛡️
-An open-source Linux utility to manage and limit internet usage on local networks using ARP Spoofing and Traffic Shaping.
+# NetNexus Network Manager
 
-## Features
-* **Auto-Discovery:** Automatically scans the network and detects the Gateway.
-* **Kill Switch:** Cut internet access for any specific device.
-* **Bandwidth Limiter:** Limit download speeds (kbps) for specific targets.
-* **No Configuration Needed:** Detects network interfaces and IPs automatically.
+A professional ARP Spoofing and Network Discovery tool developed for Arch Linux. Optimized for high-performance devices and modern gaming consoles.
 
-## Installation
-1. Clone the repo:
-   `git clone https://github.com/isitAlo/NetNexus.git`
-2. Install dependencies:
-   `pip install -r requirements.txt`
-3. Ensure you have `iptables` and `iproute2` installed on your Linux system.
+## 🚀 Features
+* **Aggressive Spoofing**: 0.5s packet interval designed to bypass modern console security (tested on PS5).
+* **Dual-Protocol Discovery**: Combined ARP and NetBIOS scanning to identify "hidden" device names.
+* **Smart Restoration**: Automatically repairs target ARP tables upon exit to prevent network downtime.
+* **Linux Optimized**: Built specifically for Arch Linux systems using Scapy.
 
-## Usage
-Run with root privileges:
-`sudo python3 main.py`
+## 🛠️ Requirements
+* Python 3.x
+* Scapy: `pip install scapy`
+* Root privileges (sudo)
 
-## Disclaimer
-This tool is for **educational and home management purposes only**. Unauthorized use on networks you do not own is strictly prohibited.
+## 📖 Usage
+
+1. **Enable IP Forwarding**:
+   Before running the tool, allow your system to route traffic:
+   ```bash
+   sudo sysctl -w net.ipv4.ip_forward=1
