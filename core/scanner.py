@@ -2,7 +2,7 @@ import scapy.all as scapy
 import subprocess
 
 def get_hostname(ip):
-    # Forced name lookup using system nmap for Arch Linux
+    """Fallback name discovery using system nmap for Arch Linux."""
     try:
         output = subprocess.check_output(f"nmap -sL {ip}", shell=True).decode()
         if "report for" in output:
@@ -12,6 +12,7 @@ def get_hostname(ip):
     return "Unknown Device"
 
 def scan(ip_range):
+    """Performs an ARP scan of the network."""
     arp_request = scapy.ARP(pdst=ip_range)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
     ans = scapy.srp(broadcast/arp_request, timeout=3, verbose=False)[0]
