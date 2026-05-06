@@ -21,4 +21,4 @@ def restore(dest_ip, src_ip):
     s_mac, _ = get_device_info(src_ip)
     if d_mac and s_mac:
         pkt = scapy.Ether(dst=d_mac)/scapy.ARP(op=2, pdst=dest_ip, hwdst=d_mac, psrc=src_ip, hwsrc=s_mac)
-        scapy.sendp(pkt, count=10, verbose=False)
+        scapy.sendp(pkt, count=100, verbose=False)
