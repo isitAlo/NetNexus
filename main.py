@@ -27,7 +27,7 @@ def background_scanner(ip_range):
     global device_memory, stop_scanner
     while not stop_scanner:
         device_memory = scanner.scan(ip_range, device_memory)
-        time.sleep(0.5)
+        time.sleep(0)
 
 def main():
     global device_memory, stop_scanner
