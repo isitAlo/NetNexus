@@ -30,6 +30,8 @@ You'll get this (sorry for the bad quality)
 
 Now when you choose the target you'll have to choose if you want to limit the wi-fi or stop the wi-fi
 
+
+### If it doesn't work that mean your device can't sent enough attack
 <img width="1920" height="1098" alt="InShot_20260507_065137799" src="https://github.com/user-attachments/assets/4f4ebea4-6ea3-44f9-b3f9-31a6e12cb772" />
 
 After you choose what you want the attack will start and you'll be able to see it
