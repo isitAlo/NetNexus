@@ -9,10 +9,9 @@ A modular Python-based network tool for Linux designed for device discovery, ARP
 
 ### Installation
 1. `pip install scapy`
-2. `sudo python main.py`
-
-### Disclaimer
-Authorized security testing only.
-EOF
-
-echo "Done! Full NetNexus structure created in ./NetNexus"
+2. `git clone https://github.com/isitAlo/NetNexus.git`
+now you've install it let's see
+### How to use it
+1. `cd NetNexus`
+2. 'sudo python main.py'
+now you can use it 
