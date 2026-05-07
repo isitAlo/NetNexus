@@ -8,11 +8,11 @@ A modular Python-based network tool for Linux designed for device discovery, ARP
 * **Auto-Cleanup**: Restores ARP tables and resets interfaces on exit.
 
 ### Installation
-'''txt
+'''text
 pip install scapy
-'''txt
+'''text
 git clone https://github.com/isitAlo/NetNexus.git
-txt'''
+text'''
 now you've install it let's see
 ### How to use it
 1. `cd NetNexus`
