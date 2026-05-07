@@ -1,21 +1,22 @@
-# NetNexus Network Manager
+# NetNexus
 
-A professional ARP Spoofing and Network Discovery tool developed for Arch Linux. Optimized for high-performance devices and modern gaming consoles.
+A modular Python-based network tool for Linux designed for device discovery, ARP spoofing, and traffic shaping.
 
-## 🚀 Features
-* **Aggressive Spoofing**: 0.5s packet interval designed to bypass modern console security (tested on PS5).
-* **Dual-Protocol Discovery**: Combined ARP and NetBIOS scanning to identify "hidden" device names.
-* **Smart Restoration**: Automatically repairs target ARP tables upon exit to prevent network downtime.
-* **Linux Optimized**: Built specifically for Arch Linux systems using Scapy.
+### Features
+* **Live Discovery**: Background scanning thread for real-time device updates.
+* **Traffic Shaping**: Limit target bandwidth in **kbps** using Linux `tc` (Traffic Control).
+* **Connection Kill**: Instantly sever a target's internet connection.
+* **Auto-Cleanup**: Automatically restores ARP tables and resets network interfaces on exit.
+* **Modular Engine**: Clean separation between scanning, spoofing, and shaping logic.
 
-## 🛠️ Requirements
-* Python 3.x
-* Scapy: `pip install scapy`
-* Root privileges (sudo)
+---
 
-## 📖 Usage
-
-1. **Enable IP Forwarding**:
-   Before running the tool, allow your system to route traffic:
-   ```bash
-   sudo sysctl -w net.ipv4.ip_forward=1
+### Project Structure
+```text
+NetNexus/
+├── main.py           # User Interface & Control Loop
+└── core/
+    ├── scanner.py    # ARP Scanning & Name Resolution
+    ├── spoof.py      # ARP Poisoning & Restore Logic
+    ├── shaper.py     # Traffic Control (kbps limiting)
+    └── __init__.py   # Package Initializer
