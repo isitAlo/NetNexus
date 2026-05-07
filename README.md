@@ -37,3 +37,6 @@ Now when you choose the target you'll have to choose if you want to limit the wi
 After you choose what you want the attack will start and you'll be able to see it
 
 <img width="1920" height="568" alt="InShot_20260507_065245110" src="https://github.com/user-attachments/assets/ece22c1d-3d67-4db4-b558-93239f175d8a" />
+
+
+### If it doesn't work that mean your device can't send enough attacks
